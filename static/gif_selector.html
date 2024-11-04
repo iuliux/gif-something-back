@@ -3,77 +3,36 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>GIF Display</title>
+    <title>Select a GIF</title>
     <style>
-        /* Basic styling for layout */
-        #gif-display,
-        #qr-code,
         #search-container {
             display: flex;
-            justify-content: center;
-            margin: 20px;
-        }
-
-        #gif-display img,
-        #qr-code canvas {
-            margin: 0 10px;
-            width: 200px;
-            height: 200px;
-        }
-
-        #search-container {
             flex-direction: column;
             align-items: center;
+            margin: 20px;
         }
 
         #search-box {
             width: 300px;
             padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        #search-results img {
+            width: 100px;
+            cursor: pointer;
+            margin: 5px;
         }
     </style>
 </head>
 
 <body>
-    <div id="gif-display"></div>
-    <div id="qr-code"></div>
     <div id="search-container">
         <input type="text" id="search-box" placeholder="Search for GIFs...">
         <div id="search-results"></div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
     <script>
-        async function fetchCurrentGifs() {
-            const response = await fetch("/current_gifs");
-            const gifs = await response.json();
-            displayGifs(gifs);
-        }
-
-        function displayGifs(gifs) {
-            const gifDisplay = document.getElementById("gif-display");
-            gifDisplay.innerHTML = "";  // Clear previous GIFs
-
-            gifs.forEach(gif => {
-                if (gif === "QR_CODE_PLACEHOLDER") {
-                    displayQRCode();  // Generate QR code for gif-selection page
-                } else {
-                    const img = document.createElement("img");
-                    img.src = gif;
-                    gifDisplay.appendChild(img);
-                }
-            });
-        }
-
-        function displayQRCode() {
-            const qrCodeContainer = document.getElementById("qr-code");
-            qrCodeContainer.innerHTML = "";  // Clear previous QR code
-            const qrCode = new QRCode(qrCodeContainer, {
-                text: window.location.href + "gif-selector",
-                width: 200,
-                height: 200,
-            });
-        }
-
         async function fetchTrendingGifs() {
             const response = await fetch("/giphy_trending");
             const data = await response.json();
@@ -93,22 +52,27 @@
             gifs.forEach(gif => {
                 const img = document.createElement("img");
                 img.src = gif.images.fixed_height.url;
-                img.style.width = "100px";
-                img.style.cursor = "pointer";
                 img.onclick = () => selectGif(gif.images.fixed_height.url);
                 searchResults.appendChild(img);
             });
         }
 
         async function selectGif(gifUrl) {
-            await fetch("/update_gif", {
+            const response = await fetch("/update_gif", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({ new_gif_url: gifUrl })
             });
-            fetchCurrentGifs();  // Refresh GIF display
+
+            if (response.ok) {
+                alert("GIF updated! It will display on the main screen.");
+            } else {
+                const errorText = await response.text();
+                alert("Failed to update GIF. Error: " + errorText);
+                console.error("Error:", errorText);
+            }
         }
 
         document.getElementById("search-box").addEventListener("input", (event) => {
@@ -120,7 +84,6 @@
             }
         });
 
-        fetchCurrentGifs();  // Initial load
         fetchTrendingGifs();  // Load trending GIFs on start
     </script>
 </body>

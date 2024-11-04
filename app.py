@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 import requests
 
 app = FastAPI()
@@ -9,11 +10,17 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # Store the currently displayed GIFs (URLs or paths to the GIFs)
 gif_display = [
     "https://media.giphy.com/media/l0HlBO7eyXzSZkJri/giphy.gif",  # Example GIFs
-    "https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif",
+    "QR_CODE_PLACEHOLDER",
     "https://media.giphy.com/media/xT9IgG50Fb7Mi0prBC/giphy.gif"
 ]
 
-GIPHY_API_KEY = "YOUR_GIPHY_API_KEY"  # Replace with your Giphy API key
+GIPHY_API_KEY = "YOUR_KEY"  # Replace with your Giphy API key
+
+
+# Define a Pydantic model for the request body
+class GifUpdateRequest(BaseModel):
+    new_gif_url: str
+
 
 @app.get("/current_gifs")
 async def get_current_gifs():
@@ -46,8 +53,10 @@ async def giphy_search(query: str):
     return response.json()
 
 @app.post("/update_gif")
-async def update_gif(new_gif_url: str):
+async def update_gif(request: GifUpdateRequest):
     """Replace the QR code placeholder with the selected GIF."""
+    new_gif_url = request.new_gif_url
+
     for i, gif in enumerate(gif_display):
         if gif == "QR_CODE_PLACEHOLDER":
             gif_display[i] = new_gif_url

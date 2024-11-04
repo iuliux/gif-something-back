@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>GIF Display</title>
+    <style>
+        #gif-display {
+            display: flex;
+            justify-content: center;
+            margin: 20px;
+        }
+
+        #gif-display img,
+        #gif-display canvas {
+            margin: 0 10px;
+            width: 200px;
+            height: 200px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="gif-display"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
+    <script>
+        async function fetchCurrentGifs() {
+            const response = await fetch("/current_gifs");
+            const gifs = await response.json();
+            displayGifs(gifs);
+        }
+
+        function displayGifs(gifs) {
+            const gifDisplay = document.getElementById("gif-display");
+            gifDisplay.innerHTML = "";  // Clear previous GIFs
+
+            gifs.forEach(gif => {
+                if (gif === "QR_CODE_PLACEHOLDER") {
+                    displayQRCode();  // Generate QR code for gif-selection page
+                } else {
+                    const img = document.createElement("img");
+                    img.src = gif;
+                    gifDisplay.appendChild(img);
+                }
+            });
+        }
+
+        function displayQRCode() {
+            const qrCodeContainer = document.createElement("div");
+            qrCodeContainer.style.display = "flex";
+            qrCodeContainer.style.alignItems = "center";
+            qrCodeContainer.style.justifyContent = "center";
+
+            const qrCode = new QRCode(qrCodeContainer, {
+                text: window.location.origin + "/static/gif_selector.html",
+                width: 200,
+                height: 200,
+            });
+
+            document.getElementById("gif-display").appendChild(qrCodeContainer);
+        }
+
+        // Poll every 5 seconds to check for updates
+        setInterval(fetchCurrentGifs, 5000);
+
+        fetchCurrentGifs();  // Initial load
+    </script>
+</body>
+
+</html>
