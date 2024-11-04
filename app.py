@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -14,8 +15,11 @@ gif_display = [
     "https://media.giphy.com/media/xT9IgG50Fb7Mi0prBC/giphy.gif"
 ]
 
-GIPHY_API_KEY = "YOUR_KEY"  # Replace with your Giphy API key
-
+# Retrieve the Giphy API key from environment variables
+GIPHY_API_KEY = os.getenv("GIPHY_API_KEY")
+# Ensure the GIPHY_API_KEY is set
+if not GIPHY_API_KEY:
+    raise ValueError("GIPHY_API_KEY environment variable is not set")
 
 # Define a Pydantic model for the request body
 class GifUpdateRequest(BaseModel):
