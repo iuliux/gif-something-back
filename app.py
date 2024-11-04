@@ -1,6 +1,6 @@
 import os
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import requests
@@ -25,6 +25,10 @@ if not GIPHY_API_KEY:
 class GifUpdateRequest(BaseModel):
     new_gif_url: str
 
+
+@app.get("/")
+async def root():
+    return RedirectResponse(url="/static/display.html")
 
 @app.get("/current_gifs")
 async def get_current_gifs():
