@@ -20,8 +20,10 @@
 
         #search-results img {
             width: 100px;
+            height: 100px;
             cursor: pointer;
             margin: 5px;
+            object-fit: cover;
         }
     </style>
 </head>
@@ -63,7 +65,7 @@
                 headers: {
                     "Content-Type": "application/json"
                 },
-                body: JSON.stringify({ new_gif_url: gifUrl })
+                body: JSON.stringify(gifUrl) // Send the string directly
             });
 
             if (response.ok) {

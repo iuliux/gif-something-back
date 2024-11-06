@@ -1,29 +1,34 @@
 import os
-from fastapi import FastAPI, Request
+import json
+import sqlite3
+import uvicorn
+import requests
+from datetime import datetime
+from fastapi import FastAPI, Request, HTTPException, Body
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
-import requests
 
+import db
+from log import logger
+
+
+# Create the FastAPI app
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Store the currently displayed GIFs (URLs or paths to the GIFs)
-gif_display = [
-    "https://media.giphy.com/media/l0HlBO7eyXzSZkJri/giphy.gif",  # Example GIFs
-    "QR_CODE_PLACEHOLDER",
-    "https://media.giphy.com/media/xT9IgG50Fb7Mi0prBC/giphy.gif"
-]
+db.init_db()
 
 # Retrieve the Giphy API key from environment variables
 GIPHY_API_KEY = os.getenv("GIPHY_API_KEY")
-# Ensure the GIPHY_API_KEY is set
 if not GIPHY_API_KEY:
     raise ValueError("GIPHY_API_KEY environment variable is not set")
-
-# Define a Pydantic model for the request body
-class GifUpdateRequest(BaseModel):
-    new_gif_url: str
+# Retrieve the Google Maps API key from environment variables
+GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
+if not GOOGLE_MAPS_API_KEY:
+    raise ValueError("GOOGLE_MAPS_API_KEY environment variable is not set")
+PLACE_ID = os.getenv("PLACE_ID")
+if not PLACE_ID:
+    raise ValueError("PLACE_ID environment variable is not set")
 
 
 @app.get("/")
@@ -32,17 +37,36 @@ async def root():
 
 @app.get("/current_gifs")
 async def get_current_gifs():
-    """Endpoint to get currently displayed GIFs."""
-    return JSONResponse(gif_display)
+    """Retrieve all GIF URLs from the database."""
+    gifs = db.refresh_fetch_current_gifs()
+    return JSONResponse(gifs)
 
-@app.post("/webhook")
-async def webhook_listener(request: Request):
-    """Webhook endpoint triggered by a new Google Maps review."""
-    data = await request.json()
-    # When triggered, replace the oldest GIF with a placeholder for the QR code
-    gif_display.pop(0)
-    gif_display.append("QR_CODE_PLACEHOLDER")
-    return {"status": "QR code placeholder set"}
+@app.get("/check_reviews")
+async def check_reviews():
+    """Check Google Places API for new reviews and respond with any updates."""
+    url = f"https://maps.googleapis.com/maps/api/place/details/json?place_id={PLACE_ID}&fields=name,rating,reviews,user_ratings_total&key={GOOGLE_MAPS_API_KEY}"
+    response = requests.get(url)
+    data = response.json()
+    logger.debug(json.dumps(data))
+
+    latest_total = data.get("result", {}).get("user_ratings_total", 0)
+    current_total = db.get_user_ratings_total()
+
+    if latest_total > current_total:
+        # Update the stored total to the new total
+        db.update_user_ratings_total(latest_total)
+
+        # Process new reviews here, like updating GIFs
+        db.qr_replace_oldest()
+        return {"new_reviews": True}  # Indicate that there are new reviews
+    return {"new_reviews": False}
+
+@app.get("/mock_check_reviews")
+async def mock_check_reviews():
+    """Check Google Places API for new reviews and respond with any updates."""
+    # Process new reviews here, like updating GIFs
+    db.qr_replace_oldest()
+    return {"new_reviews": True}
 
 @app.get("/giphy_trending")
 async def giphy_trending():
@@ -61,12 +85,7 @@ async def giphy_search(query: str):
     return response.json()
 
 @app.post("/update_gif")
-async def update_gif(request: GifUpdateRequest):
+async def update_gif(new_gif_url: str = Body(...)):
     """Replace the QR code placeholder with the selected GIF."""
-    new_gif_url = request.new_gif_url
-
-    for i, gif in enumerate(gif_display):
-        if gif == "QR_CODE_PLACEHOLDER":
-            gif_display[i] = new_gif_url
-            break
+    db.set_new_gif(new_gif_url)
     return {"status": "GIF updated"}
