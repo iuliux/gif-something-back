@@ -3,8 +3,21 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- Responsive viewport -->
     <title>GIF Display</title>
     <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            overflow: hidden; /* Prevent scrolling */
+        }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: -1; /* Position canvas behind content */
+        }
+
         #logo {
             display: flex;
             justify-content: center;
@@ -19,17 +32,24 @@
         #gif-display {
             display: flex;
             justify-content: center;
-            margin: 80px 20px;
+            margin: 60px 20px;
         }
 
-        #gif-display img,
-        #gif-display canvas {
-            margin: 0 20px;
+        #gif-display img {
+            margin: 0;
+            border: 40px solid #000;
             width: 300px;
             height: auto;
             max-height: 300px;
             display: block;
             object-fit: cover;
+        }
+
+        .qr-code-container {
+            border: 30px solid #000;
+        }
+        .qr-code-container img {
+            border: 10px solid #fff !important;
         }
 
         .fade-in { animation: fadeIn 0.5s ease-in; }
@@ -45,9 +65,13 @@
             to { opacity: 0; }
         }
     </style>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <script src="/static/js/bgvisualizer.js"></script>
 </head>
 
 <body>
+    <canvas id="backgroundVisualizer"></canvas>
     <div id="logo">
         <img src="/static/images/logo.png" width="400px" alt="logo">
     </div>
@@ -154,6 +178,7 @@
         // Start polling when the frontend is loaded
         pollForNewReviews();
     </script>
+    </body>
 </body>
 
 </html>
