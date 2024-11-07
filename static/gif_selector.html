@@ -3,32 +3,144 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- Responsive viewport -->
     <title>Select a GIF</title>
     <style>
-        #search-container {
+        /* Global Styles */
+        * {
+            box-sizing: border-box; /* Include padding and border in element’s width and height */
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f0f0;
+            color: #333;
             display: flex;
             flex-direction: column;
             align-items: center;
-            margin: 20px;
+            min-height: 100vh;
+            margin: 0;
+            overflow-x: hidden; /* Prevent horizontal scrolling */
+        }
+
+        /* Logo and Header */
+        #logo-container {
+            width: 100%;
+            padding: 10px 0;
+            text-align: center;
+            background-color: #333;
+            color: white;
+            z-index: 3;
+        }
+        #logo-container img {
+            max-width: 150px;
+            height: auto;
+        }
+
+        #message-bar {
+            background-color: #4CAF50;
+            color: white;
+            text-align: center;
+            padding: 10px;
+            font-size: 1.1em;
+            font-weight: bold;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            z-index: 2;
+            
+            /* Animation properties */
+            opacity: 0; /* Start hidden */
+            animation: slideDownFadeIn 1s ease forwards; /* Play animation on load */
+            animation-delay: 0.3s; /* Optional delay for a slight pause */
+        }
+
+        /* Search Container */
+        #search-container {
+            width: 100%;
+            max-width: 600px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow: hidden;
         }
 
         #search-box {
-            width: 300px;
-            padding: 10px;
-            margin-bottom: 10px;
+            width: calc(100% - 20px); /* Slightly reduce width to prevent overflow */
+            max-width: 100%; /* Ensure it doesn’t exceed parent width */
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+            margin-bottom: 15px;
+            transition: border-color 0.3s;
         }
 
+        #search-box:focus {
+            border-color: #007bff;
+            outline: none;
+        }
+
+        /* Search Results */
+        #search-results {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr); /* Always 3 columns */
+            gap: 10px; /* Space between images */
+            justify-items: center;
+            width: 100%; /* Full width of its parent */
+            padding: 0 10px; /* Add small padding for aesthetics */
+            box-sizing: border-box; /* Ensures padding doesn't cause overflow */
+        }
         #search-results img {
-            width: 100px;
-            height: 100px;
+            width: 100%; /* Full width of grid cell */
+            aspect-ratio: 1; /* Keeps each GIF square */
             cursor: pointer;
-            margin: 5px;
+            transition: transform 0.3s, box-shadow 0.3s;
             object-fit: cover;
+        }
+        #search-results img:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 600px) {
+            #search-container {
+                padding: 15px;
+            }
+            #search-box {
+                font-size: 0.9em;
+            }
+            #search-results img {
+                width: 80px;
+                height: 80px;
+            }
+        }
+
+        @keyframes slideDownFadeIn {
+            0% {
+                opacity: 0;
+                transform: translateY(-20px); /* Slide up from above */
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0); /* Final position */
+            }
         }
     </style>
 </head>
 
 <body>
+    <div id="logo-container">
+        <img src="/static/images/logo.png" alt="Gap the Mind Escape Rooms">
+    </div>
+
+    <div id="message-bar">
+        ⭐ Thank you for your review! Pick your GIF reward.
+    </div>
+
     <div id="search-container">
         <input type="text" id="search-box" placeholder="Search for GIFs...">
         <div id="search-results"></div>
