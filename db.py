@@ -17,7 +17,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             url TEXT NOT NULL,
             author TEXT,
-            qr BOOLEAN DEFAULT FALSE,
+            qr TIMESTAMP DEFAULT NULL,
             timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -25,7 +25,7 @@ def init_db():
     # Insert a placeholder GIF for initial setup if table is empty
     cursor.execute("SELECT COUNT(*) FROM gifs")
     if cursor.fetchone()[0] == 0:
-        cursor.execute("INSERT INTO gifs (url, author, qr) VALUES ('', 'system', 1)")
+        cursor.execute("INSERT INTO gifs (url, author, qr) VALUES ('', 'system', CURRENT_TIMESTAMP)")
         cursor.execute("INSERT INTO gifs (url, author) VALUES ('https://media.giphy.com/media/xT9IgG50Fb7Mi0prBC/giphy.gif', 'system')")
         cursor.execute("INSERT INTO gifs (url, author) VALUES ('https://media3.giphy.com/media/bbshzgyFQDqPHXBo4c/giphy.gif', 'system')")
 
@@ -49,24 +49,25 @@ def refresh_fetch_current_gifs():
     cursor = conn.cursor()
 
     # Calculate the timestamp threshold (10 minutes ago)
-    threshold_time = datetime.utcnow() - timedelta(minutes=10)
+    threshold_time = datetime.utcnow() - timedelta(minutes=2)
     threshold_str = threshold_time.strftime('%Y-%m-%d %H:%M:%S')
-    logger.debug(f'threshold_str: {threshold_str}')
+    logger.debug(f'Threshold time: {threshold_str}')
 
     # Reset 'qr' field for any entries older than 10 minutes
     cursor.execute("""
         UPDATE gifs
-        SET qr = false
-        WHERE qr = true AND url != '' AND timestamp < ?
+        SET qr = NULL
+        WHERE qr IS NOT NULL AND url != '' AND qr < ?
     """, (threshold_str,))
     # Commit the changes
     conn.commit()
+    logger.debug(f"Updated 'qr' field for {cursor.rowcount}")
     
     cursor.execute("SELECT url, author, qr, timestamp FROM gifs")
     gifs = cursor.fetchall()
     conn.close()
     
-    logger.debug(gifs)
+    logger.debug(f"Gifs: {gifs}")
     return gifs
 
 def qr_replace_oldest():
@@ -75,11 +76,11 @@ def qr_replace_oldest():
     cursor = conn.cursor()
     
     # Identify the oldest gif record
-    cursor.execute("SELECT id FROM gifs WHERE qr = false ORDER BY timestamp ASC LIMIT 1")
+    cursor.execute("SELECT id FROM gifs WHERE qr IS NULL ORDER BY timestamp ASC LIMIT 1")
     oldest_gif_id = cursor.fetchone()[0]
     logger.debug(f'oldest_gif_id {oldest_gif_id}')
     # Set QR Code for the oldest GIF
-    cursor.execute("UPDATE gifs SET qr = true, timestamp = CURRENT_TIMESTAMP WHERE id = ?", (oldest_gif_id,))
+    cursor.execute("UPDATE gifs SET qr = CURRENT_TIMESTAMP WHERE id = ?", (oldest_gif_id,))
     conn.commit()
 
     if cursor.rowcount == 0:
@@ -93,10 +94,10 @@ def set_new_gif(new_gif_url):
     cursor = conn.cursor()
     
     # Identify the oldest QR record
-    cursor.execute("SELECT id FROM gifs WHERE qr = true ORDER BY timestamp ASC LIMIT 1")
+    cursor.execute("SELECT id FROM gifs WHERE qr IS NOT NULL ORDER BY qr ASC LIMIT 1")
     oldest_qr_id = cursor.fetchone()[0]
     # Update the identified record
-    cursor.execute("UPDATE gifs SET url = ?, qr = false, timestamp = CURRENT_TIMESTAMP WHERE id = ?", (new_gif_url, oldest_qr_id))
+    cursor.execute("UPDATE gifs SET url = ?, qr = NULL, timestamp = CURRENT_TIMESTAMP WHERE id = ?", (new_gif_url, oldest_qr_id))
     conn.commit()
 
     if cursor.rowcount == 0:
