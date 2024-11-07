@@ -1,122 +1,118 @@
-import sqlite3
+import os
 from datetime import datetime, timedelta
 from fastapi import HTTPException
+from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String, Boolean, DateTime
+from sqlalchemy.sql import select, func, and_, text
+from databases import Database
 
 from log import logger
 
+# Load environment variables (for database URL)
+DATABASE_URL = os.getenv("DATABASE_URL")  # Ensure this is set in your Render environment
 
-# --- Database setup ---
-DATABASE_URL = "gifs.db"
+# Set up database connection
+database = Database(DATABASE_URL)
+metadata = MetaData()
 
-# Create database and table if it doesn't exist
-def init_db():
-    conn = sqlite3.connect(DATABASE_URL)
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS gifs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            url TEXT NOT NULL,
-            author TEXT,
-            qr TIMESTAMP DEFAULT NULL,
-            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+# Define tables using SQLAlchemy
+gifs = Table(
+    "gifs",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("url", String, nullable=False),
+    Column("author", String),
+    Column("qr", DateTime, nullable=True),
+    Column("timestamp", DateTime, default=func.now())
+)
+
+review_meta = Table(
+    "review_meta",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("user_ratings_total", Integer, default=0)
+)
+
+# Create tables (initialization)
+async def init_db():
+    engine = create_engine(DATABASE_URL)
+    metadata.create_all(engine)
+    
+    async with database.transaction():
+        # Insert a placeholder GIF if no entries exist
+        query = select(func.count()).select_from(gifs)
+        gif_count = await database.fetch_val(query)
+        
+        if gif_count == 0:
+            await database.execute_many(
+                gifs.insert(),
+                [
+                    {"url": "", "author": "system", "qr": func.now()},
+                    {"url": "https://media.giphy.com/media/xT9IgG50Fb7Mi0prBC/giphy.gif", "author": "system"},
+                    {"url": "https://media3.giphy.com/media/bbshzgyFQDqPHXBo4c/giphy.gif", "author": "system"},
+                ],
+            )
+        
+        # Insert an initial entry if `review_meta` is empty
+        query = select(func.count()).select_from(review_meta)
+        meta_count = await database.fetch_val(query)
+        
+        if meta_count == 0:
+            await database.execute(review_meta.insert().values(user_ratings_total=0))
+
+async def refresh_fetch_current_gifs():
+    # Reset 'qr' field for entries older than threshold
+    query = gifs.update().where(
+        and_(
+            gifs.c.qr.isnot(None),
+            gifs.c.url != "",
+            gifs.c.qr < func.now() - text("INTERVAL '10 minutes'")
         )
-    """)
-    
-    # Insert a placeholder GIF for initial setup if table is empty
-    cursor.execute("SELECT COUNT(*) FROM gifs")
-    if cursor.fetchone()[0] == 0:
-        cursor.execute("INSERT INTO gifs (url, author, qr) VALUES ('', 'system', CURRENT_TIMESTAMP)")
-        cursor.execute("INSERT INTO gifs (url, author) VALUES ('https://media.giphy.com/media/xT9IgG50Fb7Mi0prBC/giphy.gif', 'system')")
-        cursor.execute("INSERT INTO gifs (url, author) VALUES ('https://media3.giphy.com/media/bbshzgyFQDqPHXBo4c/giphy.gif', 'system')")
+    ).values(qr=None)
+    await database.execute(query)
 
-    # Create a table to store the timestamp of the latest review
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS review_meta (
-            id INTEGER PRIMARY KEY,
-            user_ratings_total INTEGER DEFAULT 0
-        )
-    """)
-    # Insert an initial entry if table is empty
-    cursor.execute("SELECT COUNT(*) FROM review_meta")
-    if cursor.fetchone()[0] == 0:
-        cursor.execute("INSERT INTO review_meta (user_ratings_total) VALUES (0)")
-    
-    conn.commit()
-    conn.close()
+    # Fetch updated GIF list
+    query = select(gifs.c.url, gifs.c.author, gifs.c.qr, gifs.c.timestamp)
+    result = await database.fetch_all(query)
 
-def refresh_fetch_current_gifs():
-    conn = sqlite3.connect(DATABASE_URL)
-    cursor = conn.cursor()
+    # Convert the result to a list of dictionaries
+    gifs_list = [[row['url'], row['author'], row['qr'], row['timestamp']] for row in result]
 
-    # Calculate the timestamp threshold (10 minutes ago)
-    threshold_time = datetime.utcnow() - timedelta(minutes=2)
-    threshold_str = threshold_time.strftime('%Y-%m-%d %H:%M:%S')
-    logger.debug(f'Threshold time: {threshold_str}')
+    logger.debug(f"Gifs: {gifs_list}")
+    return gifs_list
 
-    # Reset 'qr' field for any entries older than 10 minutes
-    cursor.execute("""
-        UPDATE gifs
-        SET qr = NULL
-        WHERE qr IS NOT NULL AND url != '' AND qr < ?
-    """, (threshold_str,))
-    # Commit the changes
-    conn.commit()
-    logger.debug(f"Updated 'qr' field for {cursor.rowcount}")
-    
-    cursor.execute("SELECT url, author, qr, timestamp FROM gifs")
-    gifs = cursor.fetchall()
-    conn.close()
-    
-    logger.debug(f"Gifs: {gifs}")
-    return gifs
-
-def qr_replace_oldest():
-    # When triggered, replace the oldest GIF with a QR code
-    conn = sqlite3.connect(DATABASE_URL)
-    cursor = conn.cursor()
-    
+async def qr_replace_oldest():
     # Identify the oldest gif record
-    cursor.execute("SELECT id FROM gifs WHERE qr IS NULL ORDER BY timestamp ASC LIMIT 1")
-    oldest_gif_id = cursor.fetchone()[0]
-    logger.debug(f'oldest_gif_id {oldest_gif_id}')
-    # Set QR Code for the oldest GIF
-    cursor.execute("UPDATE gifs SET qr = CURRENT_TIMESTAMP WHERE id = ?", (oldest_gif_id,))
-    conn.commit()
-
-    if cursor.rowcount == 0:
-        raise HTTPException(status_code=404, detail="No available gif found to replace.")
+    query = select(gifs.c.id).where(gifs.c.qr.is_(None)).order_by(gifs.c.timestamp.asc()).limit(1)
+    oldest_gif_id = await database.fetch_val(query)
     
-    conn.close()
+    if oldest_gif_id is None:
+        raise HTTPException(status_code=404, detail="No available gif found to replace.")
+
+    # Set QR Code for the oldest GIF
+    query = gifs.update().where(gifs.c.id == oldest_gif_id).values(qr=func.now())
+    await database.execute(query)
+    
     return {"status": "QR code set"}
 
-def set_new_gif(new_gif_url):
-    conn = sqlite3.connect(DATABASE_URL)
-    cursor = conn.cursor()
-    
+async def set_new_gif(new_gif_url):
     # Identify the oldest QR record
-    cursor.execute("SELECT id FROM gifs WHERE qr IS NOT NULL ORDER BY qr ASC LIMIT 1")
-    oldest_qr_id = cursor.fetchone()[0]
-    # Update the identified record
-    cursor.execute("UPDATE gifs SET url = ?, qr = NULL, timestamp = CURRENT_TIMESTAMP WHERE id = ?", (new_gif_url, oldest_qr_id))
-    conn.commit()
-
-    if cursor.rowcount == 0:
+    query = select(gifs.c.id).where(gifs.c.qr.isnot(None)).order_by(gifs.c.qr.asc()).limit(1)
+    oldest_qr_id = await database.fetch_val(query)
+    
+    if oldest_qr_id is None:
         raise HTTPException(status_code=404, detail="No QR code placeholder found.")
     
-    conn.close()
+    # Update the identified record
+    query = gifs.update().where(gifs.c.id == oldest_qr_id).values(url=new_gif_url, qr=None, timestamp=func.now())
+    await database.execute(query)
+    
     return {"status": "GIF set"}
 
-def get_user_ratings_total():
-    conn = sqlite3.connect(DATABASE_URL)
-    cursor = conn.cursor()
-    cursor.execute("SELECT user_ratings_total FROM review_meta WHERE id = 1")
-    total = cursor.fetchone()[0]
-    conn.close()
+async def get_user_ratings_total():
+    query = select(review_meta.c.user_ratings_total).where(review_meta.c.id == 1)
+    total = await database.fetch_val(query)
     return total
 
-def update_user_ratings_total(new_total):
-    conn = sqlite3.connect(DATABASE_URL)
-    cursor = conn.cursor()
-    cursor.execute("UPDATE review_meta SET user_ratings_total = ? WHERE id = 1", (new_total,))
-    conn.commit()
-    conn.close()
+async def update_user_ratings_total(new_total):
+    query = review_meta.update().where(review_meta.c.id == 1).values(user_ratings_total=new_total)
+    await database.execute(query)
