@@ -56,13 +56,13 @@ function createFlyBox(offset) {
         directions: [createVector(-1, -1), createVector(-1, 1), createVector(1, -1), createVector(1, 1)],
         currentDirection: 0,
         iteration: 0,
-        size: 80,
+        size: 50,
         start: function () {
             this.delay = this.getRandomDelay();
             this.steps = -this.delay;
         },
         draw: function () {
-            this.steps += 10;
+            this.steps += 12;
 
             if (this.steps < 0) {
                 return;
