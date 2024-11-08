@@ -5,11 +5,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- Responsive viewport -->
     <title>GIF Display</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@900&display=swap" rel="stylesheet">
     <style>
         html, body {
             height: 100%;
             margin: 0;
-            overflow: hidden; /* Prevent scrolling */
+            /* Prevent scrolling */
+            overflow: hidden;
         }
         canvas {
             position: absolute;
@@ -21,7 +23,7 @@
         #logo {
             display: flex;
             justify-content: center;
-            margin-top: 40px;
+            margin-top: 100px;
         }
         #logo img {
             background: #000000;
@@ -32,7 +34,7 @@
         #gif-display {
             display: flex;
             justify-content: center;
-            margin: 60px 20px;
+            margin: 100px auto 140px auto;
         }
 
         #gif-display img {
@@ -51,6 +53,73 @@
         .qr-code-container img {
             border: 10px solid #fff !important;
         }
+
+        #steps-container {
+            font-family: 'Lexend', sans-serif;
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+        }
+
+        .step {
+            display: flex;
+            align-items: center;
+            position: relative;
+            overflow: visible; /* Ensure content is visible */
+        }
+
+        /* Review QR code container */
+        .review-qr {
+            width: 150px;
+            height: 150px;
+            background-color: #fff;
+            margin-right: 25px;
+            padding: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Circle with step number */
+        .step-number {
+            display: inline-block;
+            width: 80px;
+            height: 80px;
+            background-color: #000;
+            color: #fff;
+            border-radius: 50%;
+            font-size: 42px;
+            text-align: center;
+            line-height: 80px;
+            font-weight: bold;
+            position: absolute;
+            top: -45px;
+            z-index: 3;
+        }
+        #step-1 .step-number {
+            left: 175px;
+        }
+        #step-2 .step-number {
+            left: 5px;
+        }
+
+        /* Styling for step text */
+        .step-text {
+            background-color: #000; /* Black background */
+            color: #fff; /* White text */
+            font-weight: bold;
+            font-size: 32px;
+            padding: 30px 60px;
+            border-radius: 5px;
+        }
+        #step-1 .step-text {
+            clip-path: polygon(0 0, 100% 0, 90% 100%, 0% 100%);
+        }
+        #step-2 .step-text {
+            clip-path: polygon(10% 0, 100% 0, 100% 100%, 0 100%);
+        }
+
+        /* Animations */
 
         .fade-in { animation: fadeIn 0.5s ease-in; }
         .fade-out { animation: fadeOut 0.5s ease-out; }
@@ -76,6 +145,24 @@
         <img src="/static/images/logo.png" width="400px" alt="logo">
     </div>
     <div id="gif-display"></div>
+
+    <div id="steps-container">
+        <div class="step" id="step-1">
+            <div class="review-qr">
+                <img src="/static/images/review-us-qr.png" width="150px" alt="Review QR Code">
+            </div>
+            <span class="step-number">1.</span>
+            <div class="step-text">
+                Review us on<br>Google Maps
+            </div>
+        </div>
+        <div class="step" id="step-2">
+            <span class="step-number">2.</span>
+            <div class="step-text">
+                Add your GIF<br>in the loop
+            </div>
+        </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
     <script>
