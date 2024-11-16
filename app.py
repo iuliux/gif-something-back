@@ -57,7 +57,7 @@ async def get_current_gifs():
 @app.get("/check_reviews")
 async def check_reviews():
     """Check Google Places API for new reviews and respond with any updates."""
-    url = f"https://maps.googleapis.com/maps/api/place/details/json?place_id={PLACE_ID}&fields=name,rating,reviews,user_ratings_total&key={GOOGLE_MAPS_API_KEY}"
+    url = f"https://maps.googleapis.com/maps/api/place/details/json?place_id={PLACE_ID}&fields=name,user_ratings_total&key={GOOGLE_MAPS_API_KEY}"
     response = requests.get(url)
     data = response.json()
     logger.debug(json.dumps(data))
