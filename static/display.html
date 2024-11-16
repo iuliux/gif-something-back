@@ -240,8 +240,8 @@
             });
         }
 
-        // Poll every 10 seconds to check for updates
-        setInterval(fetchCurrentGifs, 3000);
+        // Poll every 2 seconds to check for updates
+        setInterval(fetchCurrentGifs, 2000);
 
         fetchCurrentGifs();  // Initial load
 
@@ -259,7 +259,7 @@
                         }
                     })
                     .catch(error => console.error("Error checking reviews:", error));
-            }, 20 * 1000 * 100); // 20 seconds
+            }, 20 * 1000); // 20 seconds
         }
 
         // Start polling when the frontend is loaded
