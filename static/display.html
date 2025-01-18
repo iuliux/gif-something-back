@@ -244,26 +244,6 @@
         setInterval(fetchCurrentGifs, 2000);
 
         fetchCurrentGifs();  // Initial load
-
-        
-        // Periodically check if there are new reviews
-        function pollForNewReviews() {
-            setInterval(() => {
-                console.log("check_reviews");
-                fetch("/check_reviews")
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.new_reviews) {
-                            // Trigger UI update
-                            fetchCurrentGifs();
-                        }
-                    })
-                    .catch(error => console.error("Error checking reviews:", error));
-            }, 20 * 1000); // 20 seconds
-        }
-
-        // Start polling when the frontend is loaded
-        pollForNewReviews();
     </script>
     </body>
 </body>

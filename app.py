@@ -21,13 +21,6 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 GIPHY_API_KEY = os.getenv("GIPHY_API_KEY")
 if not GIPHY_API_KEY:
     raise ValueError("GIPHY_API_KEY environment variable is not set")
-# Retrieve the Google Maps API key from environment variables
-GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
-if not GOOGLE_MAPS_API_KEY:
-    raise ValueError("GOOGLE_MAPS_API_KEY environment variable is not set")
-PLACE_ID = os.getenv("PLACE_ID")
-if not PLACE_ID:
-    raise ValueError("PLACE_ID environment variable is not set")
 
 
 # --- Setup ---
@@ -54,31 +47,43 @@ async def get_current_gifs():
     gifs = await db.refresh_fetch_current_gifs()
     return JSONResponse(content=jsonable_encoder(gifs))
 
-@app.get("/check_reviews")
-async def check_reviews():
-    """Check Google Places API for new reviews and respond with any updates."""
-    url = f"https://maps.googleapis.com/maps/api/place/details/json?place_id={PLACE_ID}&fields=name,user_ratings_total&key={GOOGLE_MAPS_API_KEY}"
-    response = requests.get(url)
-    data = response.json()
-    logger.debug(json.dumps(data))
+@app.post("/webhook")
+async def handle_instagram_mentions(request: Request):
+    payload = await request.json()
+    
+    try:
+        # Extract mention data
+        entries = payload.get("entry", [])
+        mentions = []
 
-    latest_total = data.get("result", {}).get("user_ratings_total", 0)
-    current_total = await db.get_user_ratings_total()
+        for entry in entries:
+            messaging_events = entry.get("messaging", [])
+            for event in messaging_events:
+                attachments = event.get("message", {}).get("attachments", [])
+                for attachment in attachments:
+                    if attachment.get("type") == "story_mention":
+                        mentions.append({
+                            "media_url": attachment.get("payload", {}).get("url"),
+                            "sender_id": event.get("sender", {}).get("id"),
+                            "timestamp": event.get("timestamp"),
+                        })
 
-    if latest_total > current_total:
-        # Update the stored total to the new total
-        await db.update_user_ratings_total(latest_total)
+        if not mentions:
+            raise HTTPException(status_code=400, detail="No valid story mentions found")
 
-        # Process new reviews here, like updating GIFs
-        await db.qr_replace_oldest()
-        return {"new_reviews": True}  # Indicate that there are new reviews
-    return {"new_reviews": False}
+        # Process each mention
+        for mention in mentions:
+            await db.qr_replace_oldest(mention["media_url"], mention["sender_id"])
+
+    except KeyError:
+        raise HTTPException(status_code=400, detail="Invalid payload format")
+
+    return {"message": "Mentions processed successfully"}
 
 @app.get("/mock_check_reviews")
 async def mock_check_reviews():
-    """Check Google Places API for new reviews and respond with any updates."""
-    # Process new reviews here, like updating GIFs
-    await db.qr_replace_oldest()
+    """trigger a fake mention"""
+    await db.qr_replace_oldest("https://instagram.com/media/xT9IgG50Fb7Mi0prB", "4443123")
     return {"new_reviews": True}
 
 @app.get("/giphy_trending")
