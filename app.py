@@ -21,6 +21,9 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 GIPHY_API_KEY = os.getenv("GIPHY_API_KEY")
 if not GIPHY_API_KEY:
     raise ValueError("GIPHY_API_KEY environment variable is not set")
+VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
+if not VERIFY_TOKEN:
+    raise ValueError("VERIFY_TOKEN environment variable is not set")
 
 
 # --- Setup ---
@@ -46,6 +49,19 @@ async def get_current_gifs():
     """Retrieve all GIF URLs from the database."""
     gifs = await db.refresh_fetch_current_gifs()
     return JSONResponse(content=jsonable_encoder(gifs))
+
+@app.get("/webhook")
+async def verify_webhook(request: Request):
+    mode = request.query_params.get("hub.mode")
+    token = request.query_params.get("hub.verify_token")
+    challenge = request.query_params.get("hub.challenge")
+
+    if mode and token:
+        if mode == "subscribe" and token == VERIFY_TOKEN:
+            return PlainTextResponse(content=challenge, status_code=200)
+        else:
+            return PlainTextResponse(content="Forbidden", status_code=403)
+    raise HTTPException(status_code=400, detail="Bad Request")
 
 @app.post("/webhook")
 async def handle_instagram_mentions(request: Request):
