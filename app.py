@@ -6,7 +6,7 @@ import requests
 from datetime import datetime
 from fastapi import FastAPI, Request, HTTPException, Body
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
 import db
