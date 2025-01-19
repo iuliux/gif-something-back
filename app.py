@@ -74,31 +74,29 @@ async def handle_instagram_mentions(request: Request):
         if payload.get("object") != "instagram":
             raise HTTPException(status_code=400, detail="Invalid object type")
 
-        # Extract mention details from the payload
+        # Extract mention data
         entries = payload.get("entry", [])
         mentions = []
 
         for entry in entries:
-            changes = entry.get("changes", [])
-            for change in changes:
-                if change.get("field") == "mentions":
-                    value = change.get("value", {})
-                    media_id = value.get("media_id")
-                    comment_id = value.get("comment_id")
-
-                    if media_id and comment_id:
-                        mentions.append({"media_id": media_id, "comment_id": comment_id})
+            messaging_events = entry.get("messaging", [])
+            for event in messaging_events:
+                message = event.get("message", {})
+                attachments = message.get("attachments", [])
+                for attachment in attachments:
+                    if attachment.get("type") == "story_mention":
+                        mentions.append({
+                            "media_url": attachment.get("payload", {}).get("url"),
+                            "sender_id": event.get("sender", {}).get("id"),
+                            "timestamp": event.get("timestamp"),
+                        })
 
         if not mentions:
-            raise HTTPException(status_code=400, detail="No valid mentions found")
+            raise HTTPException(status_code=400, detail="No valid story mentions found")
 
         # Process each mention
         for mention in mentions:
-            media_id = mention["media_id"]
-            comment_id = mention["comment_id"]
-            
-            # Process the mention
-            await db.qr_replace_oldest(media_id, comment_id)
+            await db.qr_replace_oldest(mention["media_url"], mention["sender_id"])
 
     except KeyError:
         raise HTTPException(status_code=400, detail="Invalid payload format")
