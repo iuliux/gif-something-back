@@ -70,21 +70,35 @@ async def handle_instagram_mentions(request: Request):
     logger.info(f"Instagram webhook payload: {payload}")
 
     try:
-        # Extract mention data
-        field = payload.get("field")
-        value = payload.get("value", {})
-        
-        if field != "mentions" or not value.get("media_id"):
-            raise HTTPException(status_code=400, detail="Invalid payload format")
+        # Validate payload structure
+        if payload.get("object") != "instagram":
+            raise HTTPException(status_code=400, detail="Invalid object type")
 
-        media_id = value.get("media_id")
-        sender_id = value.get("comment_id")
+        # Extract mention details from the payload
+        entries = payload.get("entry", [])
+        mentions = []
 
-        if not sender_id or not media_id:
-            raise HTTPException(status_code=400, detail="Failed to fetch media details")
+        for entry in entries:
+            changes = entry.get("changes", [])
+            for change in changes:
+                if change.get("field") == "mentions":
+                    value = change.get("value", {})
+                    media_id = value.get("media_id")
+                    comment_id = value.get("comment_id")
 
-        # Process the mention
-        await db.qr_replace_oldest(media_id, sender_id)
+                    if media_id and comment_id:
+                        mentions.append({"media_id": media_id, "comment_id": comment_id})
+
+        if not mentions:
+            raise HTTPException(status_code=400, detail="No valid mentions found")
+
+        # Process each mention
+        for mention in mentions:
+            media_id = mention["media_id"]
+            comment_id = mention["comment_id"]
+            
+            # Process the mention
+            await db.qr_replace_oldest(media_id, comment_id)
 
     except KeyError:
         raise HTTPException(status_code=400, detail="Invalid payload format")
@@ -92,7 +106,7 @@ async def handle_instagram_mentions(request: Request):
         print(f"Error processing mentions: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
-    return {"message": "Mention processed successfully"}
+    return {"message": "Mentions processed successfully"}
 
 @app.get("/mock_check_reviews")
 async def mock_check_reviews():
