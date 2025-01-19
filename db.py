@@ -86,8 +86,8 @@ async def refresh_fetch_current_gifs():
     logger.debug(f"Gifs: {gifs_list}")
     return gifs_list
 
-async def qr_replace_oldest(media_url: str, sender_id: str):
-    author = f"{sender_id}|{media_url}"
+async def qr_replace_oldest(media_id: str, sender_id: str):
+    author = f"{sender_id}|{media_id}"
     # Identify the oldest gif record
     query = select(gifs.c.id).where(gifs.c.qr.is_(None)).order_by(gifs.c.timestamp.asc()).limit(1)
     oldest_gif_id = await database.fetch_val(query)

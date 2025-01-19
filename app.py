@@ -66,35 +66,31 @@ async def verify_webhook(request: Request):
 @app.post("/webhook")
 async def handle_instagram_mentions(request: Request):
     payload = await request.json()
-    
+
     try:
         # Extract mention data
-        entries = payload.get("entry", [])
-        mentions = []
+        field = payload.get("field")
+        value = payload.get("value", {})
+        
+        if field != "mentions" or not value.get("media_id"):
+            raise HTTPException(status_code=400, detail="Invalid payload format")
 
-        for entry in entries:
-            messaging_events = entry.get("messaging", [])
-            for event in messaging_events:
-                attachments = event.get("message", {}).get("attachments", [])
-                for attachment in attachments:
-                    if attachment.get("type") == "story_mention":
-                        mentions.append({
-                            "media_url": attachment.get("payload", {}).get("url"),
-                            "sender_id": event.get("sender", {}).get("id"),
-                            "timestamp": event.get("timestamp"),
-                        })
+        media_id = value.get("media_id")
+        sender_id = value.get("comment_id")
 
-        if not mentions:
-            raise HTTPException(status_code=400, detail="No valid story mentions found")
+        if not sender_id or not media_id:
+            raise HTTPException(status_code=400, detail="Failed to fetch media details")
 
-        # Process each mention
-        for mention in mentions:
-            await db.qr_replace_oldest(mention["media_url"], mention["sender_id"])
+        # Process the mention
+        await db.qr_replace_oldest(media_id, sender_id)
 
     except KeyError:
         raise HTTPException(status_code=400, detail="Invalid payload format")
+    except Exception as e:
+        print(f"Error processing mentions: {e}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
-    return {"message": "Mentions processed successfully"}
+    return {"message": "Mention processed successfully"}
 
 @app.get("/mock_check_reviews")
 async def mock_check_reviews():
