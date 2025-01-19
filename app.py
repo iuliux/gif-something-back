@@ -67,6 +67,8 @@ async def verify_webhook(request: Request):
 async def handle_instagram_mentions(request: Request):
     payload = await request.json()
 
+    logger.info(f"Instagram webhook payload: {payload}")
+
     try:
         # Extract mention data
         field = payload.get("field")
