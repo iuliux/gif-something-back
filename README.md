@@ -1,14 +1,14 @@
 # gif-something-back
 
 FastAPI webapp that displays 3 gifs with the posibility of replacing them on demand.  
-The app is designed to incentivize customer reviews by allowing users to add their selected GIFs to a public display after leaving a review.
+The app is designed to incentivize customer metions on Instagram by allowing users to add their selected GIFs to a public display as a reward.
 
 ## Features
 
 - **GIF Display**: Displays three GIFs at a time on a screen, with a smooth refresh mechanism.
-- **Review Integration**: Detects new reviews from Google Maps and triggers a QR code display for users to add their GIF.
+- **Instagram Webhooks Integration**: Detects new mentions from Instagram and triggers a QR code display for users to add their GIF.
 - **GIF Selection**: Users can search for and select GIFs from Giphy via a simple mobile-friendly interface.
-- **Dynamic QR Codes**: Displays QR codes for adding new GIFs after a Google Maps review is detected.
+- **Dynamic QR Codes**: Displays QR codes for adding new GIFs after an Instagram mention is detected.
 
 ## Technologies Used
 
@@ -18,7 +18,7 @@ The app is designed to incentivize customer reviews by allowing users to add the
   - **Database**: PostgreSQL (managed instance)
   - **Async Operations**: Handled via `databases` library.
 - **Third-Party APIs**:
-  - [Google Maps - Places API](https://developers.google.com/maps/documentation) for fetching reviews.
+  - [Instagram Webhooks API](https://developers.facebook.com/docs/graph-api/webhooks/reference/instagram/) for getting .
   - [Giphy API](https://developers.giphy.com/) for GIF selection.
 
 ## Install
@@ -41,8 +41,7 @@ pip install -r requirements.txt
 ```
 DATABASE_URL: PostgreSQL connection string
 GIPHY_API_KEY: Your Giphy API key
-GOOGLE_MAPS_API_KEY: Your Google Maps API key
-PLACE_ID: The Place ID hash
+VERIFY_TOKEN: The token you set up in your Meta app's webhook subscription
 ```
 
 Example .env file (note the required `+pg8000` used to work around the need to install the fiddly psycopg2):
@@ -50,8 +49,7 @@ Example .env file (note the required `+pg8000` used to work around the need to i
 ```env
 DATABASE_URL=postgresql+pg8000://<user>:<password>@<host>:<port>/<database>
 GIPHY_API_KEY=your-giphy-api-key
-GOOGLE_MAPS_API_KEY=your-google-maps-api-key
-PLACE_ID=place-id-hash
+VERIFY_TOKEN=your-verif-tok
 ```
 
 ## Running
@@ -68,10 +66,10 @@ Change the log level accordingly.
 - Displays 3 GIFs in a loop with smooth transitions.
 - Refreshes every 3 seconds to check for updates.
 
-2. Google Maps Integration:
+2. Instagram Integration:
 
-- Periodically polls Google Maps API to check for new reviews.
-- When a new review is detected, replaces the oldest GIF with a QR code.
+- A webhook notification will come from Instagram API when a new mention happens (hopefully).
+- Replaces the oldest GIF with a QR code.
 
 3. QR Code:
 
